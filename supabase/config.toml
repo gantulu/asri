@@ -1,2 +1,5 @@
 [functions.auth]
 verify_jwt = false
+
+[functions.duitku]
+verify_jwt = false
