@@ -1,6 +1,7 @@
 const baseUrl = (import.meta.env.VITE_EDGE_FUNCTION_URL as string | undefined)?.replace(/\/$/, "");
 
-export async function apiRequest<T>(
+export async function edgeFunctionRequest<T>(
+  functionName: string,
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
@@ -8,13 +9,16 @@ export async function apiRequest<T>(
     throw new Error("VITE_EDGE_FUNCTION_URL is not configured");
   }
 
-  const response = await fetch(`${baseUrl}/functions/v1/auth${path}`, {
-    ...options,
-    headers: {
-      "content-type": "application/json",
-      ...(options.headers ?? {}),
+  const response = await fetch(
+    `${baseUrl}/functions/v1/${functionName}${path}`,
+    {
+      ...options,
+      headers: {
+        "content-type": "application/json",
+        ...(options.headers ?? {}),
+      },
     },
-  });
+  );
 
   const payload = (await response.json().catch(() => ({}))) as {
     error?: string;
@@ -25,4 +29,11 @@ export async function apiRequest<T>(
   }
 
   return payload;
+}
+
+export function apiRequest<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  return edgeFunctionRequest<T>("auth", path, options);
 }
