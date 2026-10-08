@@ -34,7 +34,7 @@ jobs:
             echo "package-lock.json was not generated"
             exit 1
           fi
-          if git diff --quiet -- frontend/package-lock.json;
+          if git diff --quiet -- frontend/package-lock.json; then
             exit 0
           fi
           git config user.name "github-actions[bot]"
