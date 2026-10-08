@@ -1,0 +1,1 @@
+export default function Bag(){return <section className="p-4"><h1 className="text-xl font-semibold">Bag</h1><p className="mt-2 text-sm text-neutral-500">Cart foundation only. No fabricated API contract.</p></section>}
