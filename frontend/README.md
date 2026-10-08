@@ -63,3 +63,30 @@ Public frontend configuration may use `VITE_*` variables only. Private credentia
 - Frontend build is covered by GitHub Actions.
 - The custom `users` table was created in the connected Supabase project.
 - The `auth` Edge Function is deployed with JWT verification disabled because it implements the explicitly requested custom phone/password authentication.
+
+
+## Duitku website compliance foundation
+
+The frontend now includes public merchant-information pages and footer navigation for the minimum website content identified in Duitku's current merchant FAQ:
+- business/company information
+- clear description of products sold
+- official contact information: phone, address, and email
+- pricing/payment information in Rupiah (IDR)
+- terms and conditions
+- privacy policy
+- payment information
+- shipping information
+- refund/cancellation information
+
+Routes:
+- `/about`
+- `/contact`
+- `/payment`
+- `/shipping`
+- `/refund`
+- `/terms`
+- `/privacy`
+
+Important: the Duitku requirement is not satisfied merely by adding routes. The website must be active/published, must not be only a marketplace link, social-media page, or a subdomain of a website-builder platform, and the final business/contact information must be real and accurate. Replace every `[LENGKAPI ...]` value in `src/config/site.ts` before production verification.
+
+The payment page intentionally does not claim payment success from browser redirect. Payment status remains a backend responsibility.
