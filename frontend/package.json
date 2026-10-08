@@ -1,9 +1,1 @@
-{
-  "name":"asri-store-frontend",
-  "private":true,
-  "version":"2.0.0",
-  "type":"module",
-  "scripts":{"dev":"vite","build":"tsc -b && vite build","preview":"vite preview"},
-  "dependencies":{"@vitejs/plugin-react":"latest","react":"latest","react-dom":"latest","react-router-dom":"latest","zustand":"latest","tailwindcss":"latest","vite":"latest","typescript":"latest","@types/react":"latest","@types/react-dom":"latest"},
-  "devDependencies":{}
-}
+{"name":"asri-store-frontend","private":true,"version":"2.0.0","type":"module","scripts":{"dev":"vite","build":"tsc -b && vite build","preview":"vite preview"},"dependencies":{"@vitejs/plugin-react":"latest","react":"latest","react-dom":"latest","react-router-dom":"latest","zustand":"latest","tailwindcss":"latest","vite":"latest","typescript":"latest","@types/react":"latest","@types/react-dom":"latest"}}
