@@ -15,7 +15,7 @@ if (!supabaseUrl || !serviceRoleKey) {
 const db = createClient(supabaseUrl, serviceRoleKey);
 
 const corsHeaders = {
-  "access-control-allow-origin": "*",
+  "access-control-allow-origin": "https://asricollection.online",
   "access-control-allow-headers": "content-type",
   "access-control-allow-methods": "GET, POST, OPTIONS",
 };
@@ -546,15 +546,18 @@ async function callback(req: Request): Promise<Response> {
     updated_at: new Date().toISOString(),
   };
 
-  if (transaction.provider_reference) {
-    await db
+  const transactionWrite = transaction.provider_reference
+    ? await db
       .from("payment_transactions")
       .upsert(transaction, {
         onConflict: "provider,provider_reference",
         ignoreDuplicates: false,
-      });
-  } else {
-    await db.from("payment_transactions").insert(transaction);
+      })
+    : await db.from("payment_transactions").insert(transaction);
+
+  if (transactionWrite.error) {
+    console.error("payment transaction write failed", transactionWrite.error);
+    return new Response("Server Error", { status: 500 });
   }
 
   // Paid is monotonic. A later failed/duplicate callback cannot regress it.
