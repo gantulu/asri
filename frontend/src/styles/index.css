@@ -25,3 +25,18 @@ button,a,input,select,textarea{touch-action:manipulation}
 .form-error{margin:0;color:#b91c1c;font-size:14px}
 .profile-actions{display:flex;gap:12px;margin-top:16px}
 .profile-link{display:inline-block;padding:10px 14px;border:1px solid #d4d4d4;border-radius:10px;color:#171717;text-decoration:none}
+
+
+.site-footer{display:grid;gap:16px;padding:24px 16px calc(24px + env(safe-area-inset-bottom));border-top:1px solid #e5e5e5;background:#fafafa;font-size:13px;color:#525252}
+.site-footer-business,.site-footer-contact{display:grid;gap:4px}
+.site-footer p{margin:0}
+.site-footer small{color:#737373}
+.site-footer-links{display:grid;gap:8px}
+.site-footer-links a{color:#171717;text-decoration:none}
+.site-footer-links a:focus-visible,.site-footer-links a:hover{text-decoration:underline}
+.info-page{display:grid;gap:14px;padding:24px 16px}
+.info-page h1{margin:0;font-size:24px;font-weight:700}
+.info-page h2{margin:8px 0 0;font-size:17px;font-weight:700}
+.info-page p{margin:0;line-height:1.6;color:#404040}
+.info-list{display:grid;gap:8px;padding:14px;border:1px solid #e5e5e5;border-radius:12px;background:#fff}
+.info-warning{padding:12px;border-radius:10px;background:#fff7ed;color:#9a3412!important;font-size:13px}
