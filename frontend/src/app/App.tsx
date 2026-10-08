@@ -40,9 +40,7 @@ export default function App() {
           <Route path="/profile" element={<Profile />} />
         </Route>
 
-        <Route path="/profile/login" element={<Login />} />
-        <Route path="/profile/register" element={<Register />} />
-        <Route path="/profile/user" element={<User />} />
+        <Route element={<AppShell />}><Route path="/profile/login" element={<Login />} /><Route path="/profile/register" element={<Register />} /><Route path="/profile/user" element={<User />} /></Route>
         <Route path="/product/:productId" element={<Placeholder title="Product Detail" />} />
         <Route path="/checkout" element={<Placeholder title="Checkout" />} />
         <Route path="/tracking/:orderId" element={<Placeholder title="Tracking" />} />
