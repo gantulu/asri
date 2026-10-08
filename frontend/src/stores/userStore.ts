@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { AsriUser, AuthStatus } from "../types/auth";
-import { loginUser } from "../services/api/auth";
+import { loginUser, registerUser } from "../services/api/auth";
 import {
   clearStoredCredentials,
   getStoredCredentials,
@@ -44,15 +44,11 @@ export const useUserStore = create<UserState>((set) => ({
     const result = await loginUser({ phone, password });
 
     if (persist) {
-      const existing = getStoredCredentials();
       setStoredCredentials({
         name: result.user.name,
         phone,
         password,
       });
-      if (!existing || existing.phone !== phone || existing.name !== result.user.name) {
-        // The stored record is intentionally replaced with the latest successful login.
-      }
     }
 
     set({ status: "AUTHENTICATED", user: result.user });
@@ -60,12 +56,14 @@ export const useUserStore = create<UserState>((set) => ({
   },
 
   register: async (name, phone, password) => {
-    const result = await loginUser({ phone, password });
+    const result = await registerUser({ name, phone, password });
+
     setStoredCredentials({
-      name: result.user.name || name,
+      name: result.user.name,
       phone,
       password,
     });
+
     set({ status: "AUTHENTICATED", user: result.user });
     return result.user;
   },
