@@ -14,6 +14,12 @@ if (!supabaseUrl || !serviceRoleKey) {
 
 const db = createClient(supabaseUrl, serviceRoleKey);
 
+const corsHeaders = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "content-type",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+};
+
 const DUITKU_BASE =
   environment === "production"
     ? "https://passport.duitku.com"
@@ -23,6 +29,7 @@ function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
+      ...corsHeaders,
       "content-type": "application/json",
       "cache-control": "no-store",
     },
@@ -80,18 +87,36 @@ function integerAmount(value: unknown): number {
   return amount;
 }
 
-async function requireUser(req: Request): Promise<string> {
-  const authorization = req.headers.get("authorization") ?? "";
-  const token = authorization.startsWith("Bearer ")
-    ? authorization.slice(7)
-    : "";
+type CustomCredentials = {
+  phone: string;
+  password: string;
+};
 
-  if (!token) throw new Error("Authorization required");
+async function requireCustomUser(input: unknown): Promise<string> {
+  const credentials = (input ?? {}) as Partial<CustomCredentials>;
+  const phone = String(credentials.phone ?? "").trim();
+  const password = String(credentials.password ?? "");
 
-  const { data, error } = await db.auth.getUser(token);
-  if (error || !data.user) throw new Error("Invalid authorization");
+  if (!phone || !password) {
+    throw new Error("phone and password are required");
+  }
 
-  return data.user.id;
+  const { data, error } = await db
+    .from("users")
+    .select("user_id, password")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  if (error) {
+    console.error("custom user lookup failed", error);
+    throw new Error("Authentication failed");
+  }
+
+  if (!data || data.password !== password) {
+    throw new Error("Invalid phone or password");
+  }
+
+  return String(data.user_id);
 }
 
 async function duitkuRequest(
@@ -126,8 +151,8 @@ function newMerchantOrderId(): string {
 async function createPayment(req: Request): Promise<Response> {
   requiredConfig();
 
-  const userId = await requireUser(req);
   const input = await req.json();
+  const userId = await requireCustomUser(input);
 
   const amount = integerAmount(input.paymentAmount);
   const paymentMethod = String(input.paymentMethod ?? "").trim();
@@ -318,9 +343,9 @@ async function createPayment(req: Request): Promise<Response> {
 
 async function paymentMethods(req: Request): Promise<Response> {
   requiredConfig();
-  await requireUser(req);
 
   const input = await req.json();
+  await requireCustomUser(input);
   const amount = integerAmount(input.amount);
   const datetime = new Date()
     .toISOString()
@@ -348,9 +373,9 @@ async function paymentMethods(req: Request): Promise<Response> {
 
 async function transactionStatus(req: Request): Promise<Response> {
   requiredConfig();
-  await requireUser(req);
 
   const input = await req.json();
+  const userId = await requireCustomUser(input);
   const merchantOrderId = String(input.merchantOrderId ?? "").trim();
 
   if (!merchantOrderId) {
@@ -377,11 +402,19 @@ async function transactionStatus(req: Request): Promise<Response> {
 
   const { data: order } = await db
     .from("payment_orders")
-    .select("id, amount, status")
+    .select("id, user_id, amount, status")
     .eq("merchant_order_id", merchantOrderId)
     .maybeSingle();
 
-  if (order && Number.isSafeInteger(amount) && amount === order.amount) {
+  if (!order) {
+    return json({ error: "Order not found" }, 404);
+  }
+
+  if (String(order.user_id) !== userId) {
+    return json({ error: "Order not owned by authenticated user" }, 403);
+  }
+
+  if (Number.isSafeInteger(amount) && amount === order.amount) {
     const mappedStatus =
       statusCode === "00"
         ? "paid"
@@ -555,6 +588,10 @@ async function callback(req: Request): Promise<Response> {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   const path = new URL(req.url).pathname;
 
   try {
