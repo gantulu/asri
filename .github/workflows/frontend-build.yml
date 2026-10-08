@@ -10,6 +10,9 @@ on:
       - "frontend/**"
       - ".github/workflows/frontend-build.yml"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,3 +26,14 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run build
+      - name: Commit generated lockfile
+        working-directory: .
+        run: |
+          if git diff --quiet -- frontend/package-lock.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/package-lock.json
+          git commit -m "chore(frontend): add npm lockfile"
+          git push
