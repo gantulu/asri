@@ -9,6 +9,13 @@ import Profile from "../pages/Profile";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
 import User from "../pages/User";
+import About from "../pages/About";
+import Contact from "../pages/Contact";
+import Payment from "../pages/Payment";
+import Shipping from "../pages/Shipping";
+import Refund from "../pages/Refund";
+import Terms from "../pages/Terms";
+import Privacy from "../pages/Privacy";
 import { useUserStore } from "../stores/userStore";
 
 function Placeholder({ title }: { title: string }) {
@@ -38,9 +45,21 @@ export default function App() {
           <Route path="/bag" element={<Bag />} />
           <Route path="/shoes" element={<Shoes />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/payment" element={<Payment />} />
+          <Route path="/shipping" element={<Shipping />} />
+          <Route path="/refund" element={<Refund />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
         </Route>
 
-        <Route element={<AppShell />}><Route path="/profile/login" element={<Login />} /><Route path="/profile/register" element={<Register />} /><Route path="/profile/user" element={<User />} /></Route>
+        <Route element={<AppShell />}>
+          <Route path="/profile/login" element={<Login />} />
+          <Route path="/profile/register" element={<Register />} />
+          <Route path="/profile/user" element={<User />} />
+        </Route>
+
         <Route path="/product/:productId" element={<Placeholder title="Product Detail" />} />
         <Route path="/checkout" element={<Placeholder title="Checkout" />} />
         <Route path="/tracking/:orderId" element={<Placeholder title="Tracking" />} />
