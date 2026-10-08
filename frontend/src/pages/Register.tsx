@@ -1,7 +1,5 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { registerUser } from "../services/api/auth";
-import { setStoredCredentials } from "../utils/localStorage";
 import { useUserStore } from "../stores/userStore";
 
 export default function Register() {
@@ -19,9 +17,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const result = await registerUser({ name, phone, password });
-      setStoredCredentials({ name: result.user.name, phone, password });
-      useUserStore.setState({ status: "AUTHENTICATED", user: result.user });
+      await register(name, phone, password);
       navigate("/profile/user", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
