@@ -90,3 +90,14 @@ Routes:
 Important: the Duitku requirement is not satisfied merely by adding routes. The website must be active/published, must not be only a marketplace link, social-media page, or a subdomain of a website-builder platform, and the final business/contact information must be real and accurate. Replace every `[LENGKAPI ...]` value in `src/config/site.ts` before production verification.
 
 The payment page intentionally does not claim payment success from browser redirect. Payment status remains a backend responsibility.
+## R3.2 payment identity alignment
+
+Duitku payment requests now use the locked custom Asri identity model:
+- `/create`, `/payment-methods`, and `/status` accept `phone` + `password` and resolve `public.users.user_id` server-side.
+- `/status` verifies that the resolved `user_id` owns the requested payment order before contacting Duitku.
+- `/callback` remains public and protected by the verified Duitku signature/amount flow.
+- Supabase Auth, JWTs, sessions, and `auth.uid()` are not used for payment identity.
+- `payment_orders.user_id` references `public.users.user_id`.
+- Frontend payment calls are isolated in `src/services/api/payment.ts` and never access Supabase/PostgreSQL directly.
+
+The R3.2 migration is `supabase/migrations/0003_payment_custom_identity.sql`.
