@@ -1,0 +1,1 @@
+export default function Clothes(){return <section className="p-4"><h1 className="text-xl font-semibold">Clothes</h1><p className="mt-2 text-sm text-neutral-500">Listing blocked until the store API contract exists.</p></section>}
