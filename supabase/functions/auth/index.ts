@@ -10,7 +10,7 @@ if (!supabaseUrl || !serviceRoleKey) {
 const db = createClient(supabaseUrl, serviceRoleKey);
 
 const corsHeaders = {
-  "access-control-allow-origin": "*",
+  "access-control-allow-origin": "https://asricollection.online",
   "access-control-allow-headers": "content-type",
   "access-control-allow-methods": "GET, POST, OPTIONS",
 };
