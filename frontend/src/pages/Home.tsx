@@ -1,0 +1,1 @@
+export default function Home(){return <section className="p-4"><h1 className="text-2xl font-semibold">Asri Collection</h1><p className="mt-2 text-sm text-neutral-500">Frontend foundation ready. Product data requires a verified store API contract.</p></section>}

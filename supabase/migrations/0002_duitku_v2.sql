@@ -64,13 +64,4 @@ create index if not exists payment_callbacks_reference_idx
 revoke all on public.payment_callbacks from anon, authenticated;
 revoke all on public.payment_transactions from anon, authenticated;
 
--- Client may read its own order only when the application uses Supabase Auth
--- and stores auth.users.id in payment_orders.user_id.
-drop policy if exists payment_orders_select_own on public.payment_orders;
-create policy payment_orders_select_own
-  on public.payment_orders
-  for select
-  to authenticated
-  using ((select auth.uid()) = user_id);
-
 -- No client INSERT/UPDATE/DELETE policies: payment state is backend-owned.

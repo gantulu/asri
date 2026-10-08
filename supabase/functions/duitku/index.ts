@@ -14,6 +14,12 @@ if (!supabaseUrl || !serviceRoleKey) {
 
 const db = createClient(supabaseUrl, serviceRoleKey);
 
+const corsHeaders = {
+  "access-control-allow-origin": "https://asricollection.online",
+  "access-control-allow-headers": "content-type",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+};
+
 const DUITKU_BASE =
   environment === "production"
     ? "https://passport.duitku.com"
@@ -23,6 +29,7 @@ function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
+      ...corsHeaders,
       "content-type": "application/json",
       "cache-control": "no-store",
     },
@@ -80,18 +87,40 @@ function integerAmount(value: unknown): number {
   return amount;
 }
 
-async function requireUser(req: Request): Promise<string> {
-  const authorization = req.headers.get("authorization") ?? "";
-  const token = authorization.startsWith("Bearer ")
-    ? authorization.slice(7)
-    : "";
+class AuthenticationError extends Error {
+  status = 401;
+}
 
-  if (!token) throw new Error("Authorization required");
+type CustomCredentials = {
+  phone: string;
+  password: string;
+};
 
-  const { data, error } = await db.auth.getUser(token);
-  if (error || !data.user) throw new Error("Invalid authorization");
+async function requireCustomUser(input: unknown): Promise<string> {
+  const credentials = (input ?? {}) as Partial<CustomCredentials>;
+  const phone = String(credentials.phone ?? "").trim();
+  const password = String(credentials.password ?? "");
 
-  return data.user.id;
+  if (!phone || !password) {
+    throw new AuthenticationError("phone and password are required");
+  }
+
+  const { data, error } = await db
+    .from("users")
+    .select("user_id, password")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  if (error) {
+    console.error("custom user lookup failed", error);
+    throw new AuthenticationError("Authentication failed");
+  }
+
+  if (!data || data.password !== password) {
+    throw new AuthenticationError("Invalid phone or password");
+  }
+
+  return String(data.user_id);
 }
 
 async function duitkuRequest(
@@ -126,8 +155,8 @@ function newMerchantOrderId(): string {
 async function createPayment(req: Request): Promise<Response> {
   requiredConfig();
 
-  const userId = await requireUser(req);
   const input = await req.json();
+  const userId = await requireCustomUser(input);
 
   const amount = integerAmount(input.paymentAmount);
   const paymentMethod = String(input.paymentMethod ?? "").trim();
@@ -318,9 +347,9 @@ async function createPayment(req: Request): Promise<Response> {
 
 async function paymentMethods(req: Request): Promise<Response> {
   requiredConfig();
-  await requireUser(req);
 
   const input = await req.json();
+  await requireCustomUser(input);
   const amount = integerAmount(input.amount);
   const datetime = new Date()
     .toISOString()
@@ -333,28 +362,47 @@ async function paymentMethods(req: Request): Promise<Response> {
     apiKey,
   );
 
-  return json(
-    await duitkuRequest(
-      "/webapi/api/merchant/paymentmethod/getpaymentmethod",
-      {
-        merchantcode: merchantCode,
-        amount,
-        datetime,
-        signature,
-      },
-    ),
+  const provider = await duitkuRequest(
+    "/webapi/api/merchant/paymentmethod/getpaymentmethod",
+    {
+      merchantcode: merchantCode,
+      amount,
+      datetime,
+      signature,
+    },
   );
+
+  return json(provider.data, provider.status);
 }
 
 async function transactionStatus(req: Request): Promise<Response> {
   requiredConfig();
-  await requireUser(req);
 
   const input = await req.json();
+  const userId = await requireCustomUser(input);
   const merchantOrderId = String(input.merchantOrderId ?? "").trim();
 
   if (!merchantOrderId) {
     return json({ error: "merchantOrderId is required" }, 400);
+  }
+
+  const { data: order, error: orderError } = await db
+    .from("payment_orders")
+    .select("id, user_id, amount, status")
+    .eq("merchant_order_id", merchantOrderId)
+    .maybeSingle();
+
+  if (orderError) {
+    console.error("payment order lookup failed", orderError);
+    return json({ error: "Payment order lookup failed" }, 500);
+  }
+
+  if (!order) {
+    return json({ error: "Order not found" }, 404);
+  }
+
+  if (String(order.user_id) !== userId) {
+    return json({ error: "Order not owned by authenticated user" }, 403);
   }
 
   const signature = await hmacSha256(
@@ -375,13 +423,7 @@ async function transactionStatus(req: Request): Promise<Response> {
   const statusCode = String(providerData.statusCode ?? "");
   const amount = Number(providerData.amount);
 
-  const { data: order } = await db
-    .from("payment_orders")
-    .select("id, amount, status")
-    .eq("merchant_order_id", merchantOrderId)
-    .maybeSingle();
-
-  if (order && Number.isSafeInteger(amount) && amount === order.amount) {
+  if (Number.isSafeInteger(amount) && amount === order.amount) {
     const mappedStatus =
       statusCode === "00"
         ? "paid"
@@ -408,7 +450,6 @@ async function transactionStatus(req: Request): Promise<Response> {
 
   return json(providerData, provider.status);
 }
-
 async function callback(req: Request): Promise<Response> {
   requiredConfig();
 
@@ -505,15 +546,18 @@ async function callback(req: Request): Promise<Response> {
     updated_at: new Date().toISOString(),
   };
 
-  if (transaction.provider_reference) {
-    await db
+  const transactionWrite = transaction.provider_reference
+    ? await db
       .from("payment_transactions")
       .upsert(transaction, {
         onConflict: "provider,provider_reference",
         ignoreDuplicates: false,
-      });
-  } else {
-    await db.from("payment_transactions").insert(transaction);
+      })
+    : await db.from("payment_transactions").insert(transaction);
+
+  if (transactionWrite.error) {
+    console.error("payment transaction write failed", transactionWrite.error);
+    return new Response("Server Error", { status: 500 });
   }
 
   // Paid is monotonic. A later failed/duplicate callback cannot regress it.
@@ -555,6 +599,10 @@ async function callback(req: Request): Promise<Response> {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   const path = new URL(req.url).pathname;
 
   try {
@@ -587,9 +635,10 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error(error);
+    const status = error instanceof AuthenticationError ? error.status : 500;
     return json(
       { error: error instanceof Error ? error.message : "Internal server error" },
-      500,
+      status,
     );
   }
 });

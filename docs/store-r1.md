@@ -4,13 +4,20 @@
 
 The existing Asri repository is the implementation repository for the online store. The existing Duitku + Supabase payment backend remains intact and is treated as an integration boundary.
 
+## Current architecture
+
+- Mobile-only React frontend with a 500px maximum content width.
+- Frontend communicates with backend only through Supabase Edge Functions.
+- Asri uses custom `public.users` identity with `phone + password`; Supabase Auth/JWT is not part of the application authentication contract.
+- Duitku credentials and payment state remain backend-owned.
+
 ## R1 scope
 
 - Mobile-first frontend foundation.
 - Frontend content width target: 500px.
 - Clear separation between frontend and Supabase backend.
 - Payment implementation is not duplicated in the frontend.
-- Product, cart, checkout, order, and payment business modules are deferred to R2+.
+- Product, cart, checkout, order, and payment business modules are deferred to the next store-contract phases.
 
 ## Target structure
 
@@ -30,27 +37,33 @@ supabase/
   functions/
   migrations/
 
-## Audit findings
+## Verified foundation
 
-1. Repository is healthy and already contains the Duitku V2 payment foundation.
-2. Frontend directory was only partially bootstrapped during R1.
-3. A frontend package/build toolchain has not yet been committed.
-4. No store database schema exists yet for products, carts, orders, or catalog data.
-5. Existing payment schema is specialized and should not be replaced by a generic store schema.
-6. Existing payment callbacks and provider secrets must remain backend-owned.
+1. Frontend build is covered by GitHub Actions.
+2. Duitku payment endpoints are implemented behind the Edge Function boundary.
+3. Custom payment identity uses `phone + password` and resolves to `public.users.user_id`.
+4. Payment tables use RLS and are not exposed to browser business logic.
+5. Provider signatures, amount validation, provider reference persistence, and monotonic paid state are implemented.
+
+## Open verification gates
+
+1. Live Duitku Sandbox HTTP tests.
+2. Real callback delivery and idempotency verification.
+3. Production merchant website/contact information.
+4. Frontend dependency lockfile and reproducible install verification.
 
 ## Recommended implementation order
 
-R1: complete frontend foundation.
-R2: design store/catalog database contract.
-R3: design store backend API contract.
-R4: implement product browsing.
-R5: implement cart.
-R6: implement checkout and order creation.
-R7: connect existing Duitku payment boundary.
-R8: order/payment reconciliation and admin operations.
-R9: security, testing, and production verification.
+1. Complete payment hardening and Sandbox E2E verification.
+2. Design Store/Catalog database contract.
+3. Design Store backend API contract.
+4. Implement product browsing.
+5. Implement cart.
+6. Implement checkout and order creation.
+7. Connect the existing Duitku payment boundary.
+8. Order/payment reconciliation and admin operations.
+9. Security, testing, and production verification.
 
 ## Verification gate
 
-R1 is complete only when the frontend has a reproducible install/build configuration, the source tree follows the agreed boundary, and no payment secrets or payment state logic are moved into the browser.
+The store foundation is complete only when frontend build/install is reproducible, source boundaries are explicit, payment secrets remain backend-owned, and the payment Sandbox E2E flow is verified.

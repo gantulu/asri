@@ -13,9 +13,10 @@
 - [x] Provider amount is checked against the merchant order amount.
 - [x] Provider reference is persisted.
 - [x] paymentUrl / vaNumber / qrString / appUrl are persisted.
-- [x] Duplicate provider reference is protected by a unique index.
+- [x] Duplicate provider reference is protected by a unique constraint.
 - [x] Paid state is monotonic against later failed callbacks.
-- [x] Callback is public; application endpoints require Supabase Auth Bearer tokens inside the function.
+- [x] Callback is public; application endpoints use Asri custom `phone + password` authentication. No Supabase Auth JWT is used.
+- [x] Payment transaction write errors are checked before updating the payment order state.
 
 ## Database integration test
 
@@ -36,17 +37,15 @@ transactions = 1
 final_status = paid
 ```
 
-## Deployment test
+## Deployment verification
 
-- [x] Supabase migration `payment_core` applied.
-- [x] Supabase migration `duitku_v2` applied.
-- [x] Edge Function `duitku` deployed successfully.
-- [x] Edge Function status: ACTIVE.
-- [x] Deployment version: 1.
+- [x] Supabase payment migrations are applied.
+- [x] Edge Function `duitku` is ACTIVE.
+- [x] Edge Function configuration is source-controlled with `verify_jwt = false`.
 
-## Live sandbox tests pending
+## Live sandbox tests
 
-These require real Duitku sandbox credentials:
+These require real Duitku sandbox credentials and an externally reachable callback URL:
 
 - [ ] Inquiry against sandbox.
 - [ ] Get payment methods against sandbox.
