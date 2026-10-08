@@ -362,17 +362,17 @@ async function paymentMethods(req: Request): Promise<Response> {
     apiKey,
   );
 
-  return json(
-    await duitkuRequest(
-      "/webapi/api/merchant/paymentmethod/getpaymentmethod",
-      {
-        merchantcode: merchantCode,
-        amount,
-        datetime,
-        signature,
-      },
-    ),
+  const provider = await duitkuRequest(
+    "/webapi/api/merchant/paymentmethod/getpaymentmethod",
+    {
+      merchantcode: merchantCode,
+      amount,
+      datetime,
+      signature,
+    },
   );
+
+  return json(provider.data, provider.status);
 }
 
 async function transactionStatus(req: Request): Promise<Response> {
