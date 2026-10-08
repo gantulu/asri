@@ -2,26 +2,28 @@
 
 ## Static checks
 
-- [ ] Duitku Edge Function contains no Supabase Auth `getUser` call
-- [ ] `/create` verifies `phone + password`
-- [ ] `/payment-methods` verifies `phone + password`
-- [ ] `/status` verifies `phone + password`
-- [ ] `/status` verifies `payment_orders.user_id` ownership
-- [ ] `/callback` remains public
-- [ ] callback signature validation remains unchanged
-- [ ] payment secrets remain server-side
-- [ ] frontend payment service calls the Duitku Edge Function only
-- [ ] `payment_orders.user_id` references `public.users.user_id`
-- [ ] no browser payment policy uses `auth.uid()`
+- [x] Duitku Edge Function contains no Supabase Auth `getUser` call.
+- [x] `/create` verifies `phone + password`.
+- [x] `/payment-methods` verifies `phone + password`.
+- [x] `/status` verifies `phone + password`.
+- [x] `/status` verifies `payment_orders.user_id` ownership.
+- [x] `/callback` remains public.
+- [x] Callback signature validation remains unchanged.
+- [x] Payment secrets remain server-side.
+- [x] Frontend payment service calls the Duitku Edge Function only.
+- [x] `payment_orders.user_id` references `public.users.user_id`.
+- [x] No browser payment policy uses `auth.uid()`.
 
 ## Runtime checks
 
 Require a deployed Edge Function and test credentials/data:
 
-1. Valid custom credentials can create a payment order.
-2. Invalid credentials are rejected.
-3. A user cannot read another user's payment status.
-4. A user can read their own payment status.
-5. Duitku callback remains callable without user credentials.
-6. A valid callback updates the matching payment order.
-7. An invalid callback signature is rejected.
+- [ ] Valid custom credentials can create a payment order.
+- [ ] Invalid credentials are rejected.
+- [ ] A user cannot access another user's payment status.
+- [ ] A user can access their own payment status.
+- [ ] Duitku callback remains callable without user credentials.
+- [ ] A valid callback updates the matching payment order.
+- [ ] An invalid callback signature is rejected.
+
+Runtime checks remain open until the live Sandbox E2E test is executed.
