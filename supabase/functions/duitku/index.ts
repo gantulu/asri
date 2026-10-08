@@ -87,6 +87,10 @@ function integerAmount(value: unknown): number {
   return amount;
 }
 
+class AuthenticationError extends Error {
+  status = 401;
+}
+
 type CustomCredentials = {
   phone: string;
   password: string;
@@ -98,7 +102,7 @@ async function requireCustomUser(input: unknown): Promise<string> {
   const password = String(credentials.password ?? "");
 
   if (!phone || !password) {
-    throw new Error("phone and password are required");
+    throw new AuthenticationError("phone and password are required");
   }
 
   const { data, error } = await db
@@ -109,11 +113,11 @@ async function requireCustomUser(input: unknown): Promise<string> {
 
   if (error) {
     console.error("custom user lookup failed", error);
-    throw new Error("Authentication failed");
+    throw new AuthenticationError("Authentication failed");
   }
 
   if (!data || data.password !== password) {
-    throw new Error("Invalid phone or password");
+    throw new AuthenticationError("Invalid phone or password");
   }
 
   return String(data.user_id);
@@ -382,6 +386,25 @@ async function transactionStatus(req: Request): Promise<Response> {
     return json({ error: "merchantOrderId is required" }, 400);
   }
 
+  const { data: order, error: orderError } = await db
+    .from("payment_orders")
+    .select("id, user_id, amount, status")
+    .eq("merchant_order_id", merchantOrderId)
+    .maybeSingle();
+
+  if (orderError) {
+    console.error("payment order lookup failed", orderError);
+    return json({ error: "Payment order lookup failed" }, 500);
+  }
+
+  if (!order) {
+    return json({ error: "Order not found" }, 404);
+  }
+
+  if (String(order.user_id) !== userId) {
+    return json({ error: "Order not owned by authenticated user" }, 403);
+  }
+
   const signature = await hmacSha256(
     merchantCode + merchantOrderId,
     apiKey,
@@ -399,20 +422,6 @@ async function transactionStatus(req: Request): Promise<Response> {
   const providerData = provider.data;
   const statusCode = String(providerData.statusCode ?? "");
   const amount = Number(providerData.amount);
-
-  const { data: order } = await db
-    .from("payment_orders")
-    .select("id, user_id, amount, status")
-    .eq("merchant_order_id", merchantOrderId)
-    .maybeSingle();
-
-  if (!order) {
-    return json({ error: "Order not found" }, 404);
-  }
-
-  if (String(order.user_id) !== userId) {
-    return json({ error: "Order not owned by authenticated user" }, 403);
-  }
 
   if (Number.isSafeInteger(amount) && amount === order.amount) {
     const mappedStatus =
@@ -441,7 +450,6 @@ async function transactionStatus(req: Request): Promise<Response> {
 
   return json(providerData, provider.status);
 }
-
 async function callback(req: Request): Promise<Response> {
   requiredConfig();
 
@@ -624,9 +632,10 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error(error);
+    const status = error instanceof AuthenticationError ? error.status : 500;
     return json(
       { error: error instanceof Error ? error.message : "Internal server error" },
-      500,
+      status,
     );
   }
 });
