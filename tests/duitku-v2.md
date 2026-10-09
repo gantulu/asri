@@ -56,3 +56,36 @@ These require real Duitku sandbox credentials:
 - [ ] Amount mismatch callback.
 - [ ] Duplicate callback delivery.
 - [ ] Full sandbox payment.
+
+
+## Backend V1 correction regression checks
+
+- [x] Status check now requires the order to belong to the authenticated user.
+- [x] Status check rejects non-2xx provider responses.
+- [x] Status check validates amount and documented status codes before updating state.
+- [x] Payment-method endpoint propagates provider HTTP status.
+- [x] Callback amount is validated as a positive safe integer.
+- [x] Callback rejects unsupported result codes.
+- [x] Callback processing upserts one transaction per order/provider.
+- [x] Callback fingerprint column and unique index added by migration 0003.
+- [x] Status history table and database trigger added by migration 0003.
+- [ ] Run Deno typecheck / Supabase Edge Function tests.
+- [ ] Apply migration 0003 to the target Supabase project.
+- [ ] Verify duplicate callback and concurrent callback behavior against the target database.
+- [ ] Run all live Sandbox tests.
+- [ ] Replace client-provided payment amount with a trusted server-side order amount before production checkout.
+
+These are source-level corrections; unchecked items are not claimed as passed.
+
+
+## Dedicated Edge Function structure
+
+- [x] Added `duitku-create-payment` entrypoint.
+- [x] Added public `duitku-callback` entrypoint with handler-level signature validation.
+- [x] Added `duitku-check-status` entrypoint.
+- [x] Added `payment-status` read-only entrypoint.
+- [x] Kept legacy `duitku` function as a compatibility route.
+- [x] Added per-function JWT settings in `supabase/config.toml`.
+- [ ] Deploy dedicated functions to a non-production/Sandbox Supabase environment.
+- [ ] Verify callback can reach the public endpoint without a Supabase Auth JWT.
+- [ ] Verify the three client-facing endpoints reject missing/invalid JWTs.
