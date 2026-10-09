@@ -35,6 +35,14 @@ function hex(bytes: Uint8Array): string {
     .join("");
 }
 
+async function sha256Hex(message: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(message),
+  );
+  return hex(new Uint8Array(digest));
+}
+
 async function hmacSha256(message: string, secret: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -333,22 +341,22 @@ async function paymentMethods(req: Request): Promise<Response> {
     apiKey,
   );
 
-  return json(
-    await duitkuRequest(
-      "/webapi/api/merchant/paymentmethod/getpaymentmethod",
-      {
-        merchantcode: merchantCode,
-        amount,
-        datetime,
-        signature,
-      },
-    ),
+  const provider = await duitkuRequest(
+    "/webapi/api/merchant/paymentmethod/getpaymentmethod",
+    {
+      merchantcode: merchantCode,
+      amount,
+      datetime,
+      signature,
+    },
   );
+
+  return json(provider.data, provider.status);
 }
 
 async function transactionStatus(req: Request): Promise<Response> {
   requiredConfig();
-  await requireUser(req);
+  const userId = await requireUser(req);
 
   const input = await req.json();
   const merchantOrderId = String(input.merchantOrderId ?? "").trim();
@@ -356,6 +364,17 @@ async function transactionStatus(req: Request): Promise<Response> {
   if (!merchantOrderId) {
     return json({ error: "merchantOrderId is required" }, 400);
   }
+
+  // Authorize access before contacting Duitku; do not disclose other users' orders.
+  const { data: order, error: orderError } = await db
+    .from("payment_orders")
+    .select("id, user_id, amount, status")
+    .eq("merchant_order_id", merchantOrderId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (orderError) return json({ error: "Unable to load payment order" }, 500);
+  if (!order) return json({ error: "Payment order not found" }, 404);
 
   const signature = await hmacSha256(
     merchantCode + merchantOrderId,
@@ -371,39 +390,56 @@ async function transactionStatus(req: Request): Promise<Response> {
     },
   );
 
+  if (provider.status < 200 || provider.status >= 300) {
+    return json({ error: "Duitku status check failed" }, 502);
+  }
+
   const providerData = provider.data;
   const statusCode = String(providerData.statusCode ?? "");
   const amount = Number(providerData.amount);
 
-  const { data: order } = await db
-    .from("payment_orders")
-    .select("id, amount, status")
-    .eq("merchant_order_id", merchantOrderId)
-    .maybeSingle();
+  if (!Number.isSafeInteger(amount) || amount !== Number(order.amount)) {
+    return json({ error: "Provider amount mismatch" }, 502);
+  }
 
-  if (order && Number.isSafeInteger(amount) && amount === order.amount) {
-    const mappedStatus =
-      statusCode === "00"
-        ? "paid"
+  const mappedStatus =
+    statusCode === "00"
+      ? "paid"
+      : statusCode === "01"
+        ? "pending"
         : statusCode === "02"
           ? "cancelled"
-          : "pending";
+          : null;
 
-    if (!(order.status === "paid" && mappedStatus !== "paid")) {
-      await db
-        .from("payment_orders")
-        .update({
-          status: mappedStatus,
-          provider_reference: String(providerData.reference ?? "") || null,
-          provider_status_code: statusCode || null,
-          provider_status_message: String(providerData.statusMessage ?? "") || null,
-          paid_at: mappedStatus === "paid"
-            ? new Date().toISOString()
-            : undefined,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", order.id);
+  if (!mappedStatus) {
+    return json({ error: "Unknown Duitku transaction status" }, 502);
+  }
+
+  // Never regress a paid order or reopen a terminal failed/cancelled order.
+  const isTerminal = ["paid", "failed", "cancelled", "creation_failed"].includes(order.status);
+  const shouldUpdate = order.status === "pending" ||
+    (order.status === "paid" && mappedStatus === "paid");
+
+  if (shouldUpdate && (!isTerminal || mappedStatus === "paid")) {
+    const update: Record<string, unknown> = {
+      provider_reference: String(providerData.reference ?? "") || null,
+      provider_status_code: statusCode,
+      provider_status_message: String(providerData.statusMessage ?? "") || null,
+      updated_at: new Date().toISOString(),
+    };
+    if (mappedStatus === "paid") {
+      update.status = "paid";
+      update.paid_at = new Date().toISOString();
+    } else if (order.status === "pending") {
+      update.status = mappedStatus;
     }
+
+    const { error: updateError } = await db
+      .from("payment_orders")
+      .update(update)
+      .eq("id", order.id)
+      .eq("user_id", userId);
+    if (updateError) return json({ error: "Unable to update payment status" }, 500);
   }
 
   return json(providerData, provider.status);
@@ -437,8 +473,18 @@ async function callback(req: Request): Promise<Response> {
     callbackMerchantCode === merchantCode &&
     safeEqual(signature, expected);
 
+  const eventFingerprint = await sha256Hex([
+    callbackMerchantCode,
+    amount,
+    merchantOrderId,
+    get("resultCode"),
+    get("reference"),
+    signature,
+  ].join("|"));
+
   const callbackRow = {
     merchant_order_id: merchantOrderId,
+    event_fingerprint: eventFingerprint,
     signature,
     signature_valid: signatureValid,
     result_code: get("resultCode") || null,
@@ -481,11 +527,16 @@ async function callback(req: Request): Promise<Response> {
     return new Response("Order Not Found", { status: 404 });
   }
 
-  if (Number(order.amount) !== Number(amount)) {
+  const numericAmount = Number(amount);
+  if (!Number.isSafeInteger(numericAmount) || numericAmount <= 0 ||
+      Number(order.amount) !== numericAmount) {
     return new Response("Amount Mismatch", { status: 400 });
   }
 
   const resultCode = get("resultCode");
+  if (resultCode !== "00" && resultCode !== "01") {
+    return new Response("Unsupported Result Code", { status: 400 });
+  }
   const nextStatus = resultCode === "00" ? "paid" : "failed";
 
   const transaction = {
@@ -494,7 +545,7 @@ async function callback(req: Request): Promise<Response> {
     provider_reference: get("reference") || null,
     payment_code: get("paymentCode") || null,
     payment_method: get("paymentCode") || null,
-    amount: Number(amount),
+    amount: numericAmount,
     status_code: resultCode || null,
     status_message: resultCode === "00" ? "SUCCESS" : "FAILED",
     publisher_order_id: get("publisherOrderId") || null,
@@ -505,15 +556,16 @@ async function callback(req: Request): Promise<Response> {
     updated_at: new Date().toISOString(),
   };
 
-  if (transaction.provider_reference) {
-    await db
-      .from("payment_transactions")
-      .upsert(transaction, {
-        onConflict: "provider,provider_reference",
-        ignoreDuplicates: false,
-      });
-  } else {
-    await db.from("payment_transactions").insert(transaction);
+  const { error: transactionError } = await db
+    .from("payment_transactions")
+    .upsert(transaction, {
+      onConflict: "order_id,provider",
+      ignoreDuplicates: false,
+    });
+
+  if (transactionError) {
+    console.error("payment transaction upsert failed", transactionError);
+    return new Response("Server Error", { status: 500 });
   }
 
   // Paid is monotonic. A later failed/duplicate callback cannot regress it.
