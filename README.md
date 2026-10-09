@@ -128,3 +128,15 @@ After sandbox secrets are configured:
 8. Verify invalid signature is rejected.
 9. Verify transaction-status reconciliation.
 10. Verify redirect never changes authoritative payment state.
+
+
+## Backend V1 corrections
+
+See [Backend V1 Corrections](docs/backend-v1-corrections.md).
+
+Additive migration:
+- `supabase/migrations/0003_backend_v1_corrections.sql`
+
+Corrections include transaction-status ownership checks, stricter status/amount validation, callback event fingerprinting, payment transaction uniqueness, and payment status history.
+
+**Production blocker:** `/create` currently accepts the amount from the authenticated client. It must be changed to derive the payable amount from a trusted server-side order/cart before production checkout.
