@@ -1,0 +1,18 @@
+project_id = "asri"
+
+# Legacy compatibility endpoint: callback route remains publicly reachable.
+[functions.duitku]
+verify_jwt = false
+
+# Dedicated Backend V1 endpoints.
+[functions.duitku-create-payment]
+verify_jwt = true
+
+[functions.duitku-callback]
+verify_jwt = false
+
+[functions.duitku-check-status]
+verify_jwt = true
+
+[functions.payment-status]
+verify_jwt = true
