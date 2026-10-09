@@ -76,3 +76,16 @@ These require real Duitku sandbox credentials:
 - [ ] Replace client-provided payment amount with a trusted server-side order amount before production checkout.
 
 These are source-level corrections; unchecked items are not claimed as passed.
+
+
+## Dedicated Edge Function structure
+
+- [x] Added `duitku-create-payment` entrypoint.
+- [x] Added public `duitku-callback` entrypoint with handler-level signature validation.
+- [x] Added `duitku-check-status` entrypoint.
+- [x] Added `payment-status` read-only entrypoint.
+- [x] Kept legacy `duitku` function as a compatibility route.
+- [x] Added per-function JWT settings in `supabase/config.toml`.
+- [ ] Deploy dedicated functions to a non-production/Sandbox Supabase environment.
+- [ ] Verify callback can reach the public endpoint without a Supabase Auth JWT.
+- [ ] Verify the three client-facing endpoints reject missing/invalid JWTs.
