@@ -16,16 +16,16 @@ This change is additive to the existing Asri Duitku V2 foundation. It does not d
 - Validated callback amount as a positive safe integer and used it consistently for persistence.
 - Added error handling for transaction upsert failures.
 
-## Existing architecture note
+## Edge Function structure
 
-The repository currently deploys one Edge Function named `duitku` with four POST routes:
+Four dedicated Backend V1 functions have been added:
 
-- `/create`
-- `/payment-methods`
-- `/status`
-- `/callback`
+- `duitku-create-payment` — authenticated payment creation.
+- `duitku-callback` — public callback endpoint; signature validation is enforced in the handler.
+- `duitku-check-status` — authenticated status check, scoped to the caller's own payment order.
+- `payment-status` — authenticated read-only payment status.
 
-These are four logical endpoints, not four separately deployable Edge Function slugs. The current function was retained to avoid breaking existing deployed routes. Splitting the endpoints into four independent functions is a separate migration and must include per-function JWT configuration, especially the public callback.
+The existing `duitku` function remains as a compatibility endpoint so existing URLs are not removed. The legacy endpoint also retains the payment-method route. New frontend integrations should use the dedicated functions. JWT settings are recorded in `supabase/config.toml`; the callback is the only dedicated endpoint configured without gateway JWT verification.
 
 ## Production blocker
 
